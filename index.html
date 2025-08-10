@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jangchi Sariq - Mini O'yin</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: #222;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    #game-container {
+      width: 100vw;
+      height: 100vh;
+      margin: 0 auto;
+      display: block;
+    }
+    #info {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      font-size: 16px;
+      background: rgba(0,0,0,0.5);
+      padding: 8px 12px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="info">
+  ⬅️ Chap — ➡️ O'ng harakat <br />
+  Z — Hujum, X — Maxsus zarba, Shift — Blok
+</div>
+
+<div id="game-container"></div>
+
+<script>
+  const config = {
+    type: Phaser.AUTO,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    backgroundColor: '#444400',
+    parent: 'game-container',
+    physics: {
+      default: 'arcade',
+      arcade: { debug: false }
+    },
+    scene: {
+      preload: preload,
+      create: create,
+      update: update
+    }
+  };
+
+  let player;
+  let cursors;
+  let attackKey;
+  let specialKey;
+  let blockKey;
+  let canAttack = true;
+  let attackCooldown = 0;
+  let energy = 100;
+  let maxEnergy = 100;
+  let energyRegenRate = 10; // energy per second
+
+  let comboCount = 0;
+  let comboTimer = 0;
+  const comboResetTime = 1000; // ms
+
+  const game = new Phaser.Game(config);
+
+  function preload() {
+    this.load.image('player', 'https://i.imgur.com/T9b3t41.png'); // oddiy o'yinchi icon
+    this.load.image('enemy', 'https://i.imgur.com/7d2u4pj.png');
+  }
+
+  function create() {
+    player = this.physics.add.sprite(config.width/2, config.height - 100, 'player').setScale(2);
+    player.setCollideWorldBounds(true);
+    player.health = 100;
+
+    enemy = this.physics.add.sprite(config.width/2 + 150, config.height - 100, 'enemy').setScale(2);
+    enemy.health = 50;
+
+    cursors = this.input.keyboard.createCursorKeys();
+    attackKey = this.input.keyboard.addKey('Z');
+    specialKey = this.input.keyboard.addKey('X');
+    blockKey = this.input.keyboard.addKey('SHIFT');
+
+    this.energyText = this.add.text(10, 10, 'Energiya: 100', { fontSize: '20px', fill: '#fff' });
+    this.healthText = this.add.text(10, 40, 'Hayot: 100', { fontSize: '20px', fill: '#fff' });
+    this.enemyHealthText = this.add.text(10, 70, 'Dushman Hayoti: 50', { fontSize: '20px', fill: '#fff' });
+    this.comboText = this.add.text(10, 100, 'Combo: 0', { fontSize: '20px', fill: '#fff' });
+  }
+
+  function update(time, delta) {
+    let speed = 200;
+    player.setVelocity(0);
+
+    if (cursors.left.isDown) {
+      if (energy > 0) {
+        player.setVelocityX(-speed);
+        energy -= 0.1 * delta/16;
+      }
+    } else if (cursors.right.isDown) {
+      if (energy > 0) {
+        player.setVelocityX(speed);
+        energy -= 0.1 * delta/16;
+      }
+    }
+
+    // Energiya tiklanishi
+    energy += energyRegenRate * delta/1000;
+    if (energy > maxEnergy) energy = maxEnergy;
+
+    this.energyText.setText(`Energiya: ${energy.toFixed(0)}`);
+    this.healthText.setText(`Hayot: ${player.health}`);
+    this.enemyHealthText.setText(`Dushman Hayoti: ${enemy.health}`);
+    this.comboText.setText(`Combo: ${comboCount}`);
+
+    // Hujum va maxsus zarba
+    if (attackCooldown > 0) attackCooldown -= delta;
+
+    if (Phaser.Input.Keyboard.JustDown(attackKey) && attackCooldown <= 0 && energy >= 10) {
+      attackCooldown = 500; // 0.5 sec cooldown
+      energy -= 10;
+      comboCount++;
+      comboTimer = comboResetTime;
+
+      // Dushmanga zarar
+      let damage = 10;
+      if (comboCount >= 3) {
+        damage = 20; // combo zarbi
+      }
+      enemy.health -= damage;
+
+      if (enemy.health <= 0) {
+        enemy.health = 50;
+        enemy.x = config.width/2 + 150;
+      }
+    }
+
+    // Combo timer
+    if (comboTimer > 0) {
+      comboTimer -= delta;
+    } else {
+      comboCount = 0;
+    }
+
+    // Maxsus zarba
+    if (Phaser.Input.Keyboard.JustDown(specialKey) && energy >= 50) {
+      energy -= 50;
+      comboCount = 0;
+      enemy.health -= 30;
+      if (enemy.health <= 0) {
+        enemy.health = 50;
+        enemy.x = config.width/2 + 150;
+      }
+    }
+
+    // Bloklash (SHIFT)
+    if (blockKey.isDown) {
+      player.setTint(0x00ff00);
+    } else {
+      player.clearTint();
+    }
+  }
+</script>
+</body>
+</html>
